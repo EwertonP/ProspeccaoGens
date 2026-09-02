@@ -1,0 +1,9 @@
+{
+  "buildCommand": "npm run build",
+  "installCommand": "npm ci",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "crons": [
+    { "path": "/api/cron/poll-scrape-runs", "schedule": "*/15 * * * *" }
+  ]
+}
