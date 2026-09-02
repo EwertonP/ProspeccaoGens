@@ -67,4 +67,4 @@ npm run dev
 
 ## Deploy
 
-Vercel, mesmo padrão dos outros projetos da agência. `vercel.json` já inclui o cron de `poll-scrape-runs` a cada 15 minutos.
+Vercel, mesmo padrão dos outros projetos da agência. `vercel.json` já inclui o cron de `poll-scrape-runs` 1x por dia (limite do plano Hobby da Vercel -- num plano pago dá pra rodar com mais frequência).
