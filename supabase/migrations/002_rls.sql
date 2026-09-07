@@ -1,24 +1,7 @@
 -- 002_rls.sql
--- Projeto de tenant único (ferramenta interna) -- policy simples
--- authenticated-only em todas as tabelas, sem client_id/role.
-
-alter table scrape_runs enable row level security;
-alter table leads enable row level security;
-alter table lead_signals enable row level security;
-alter table lead_activities enable row level security;
-alter table message_templates enable row level security;
-
-create policy "authenticated_full_access" on scrape_runs
-  for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-
-create policy "authenticated_full_access" on leads
-  for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-
-create policy "authenticated_full_access" on lead_signals
-  for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-
-create policy "authenticated_full_access" on lead_activities
-  for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-
-create policy "authenticated_full_access" on message_templates
-  for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+-- No Supabase, isso habilitava RLS com policies baseadas em auth.role().
+-- No Neon (Postgres puro + Managed Better Auth), a autorização acontece
+-- inteiramente na camada de aplicação: toda rota passa por auth.middleware()
+-- (ver proxy.ts) antes de chegar nas rotas que usam a role dona do banco
+-- (DATABASE_URL), que já ignora RLS por padrão. Não há RLS a configurar
+-- aqui -- arquivo mantido só pra preservar a numeração das migrations.

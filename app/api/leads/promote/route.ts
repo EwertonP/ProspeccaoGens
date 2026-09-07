@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { sql } from "@/lib/db";
 import { promoteLeadToNotion } from "@/lib/notion-bridge/promote";
 import { NotionCredentialsError } from "@/lib/notion-bridge/client";
-import type { Lead, LeadSignal } from "@/lib/types";
+import type { Lead } from "@/lib/types";
 
 // POST /api/leads/promote { leadIds: string[] } -- promove em lote pro
 // Kanban "Leads Qualificados" no Notion. Idempotente por lead: quem já tem
@@ -13,25 +13,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "leadIds (array não vazio) é obrigatório" }, { status: 400 });
   }
 
-  const supabase = createAdminClient();
   const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? req.nextUrl.origin;
-
   const results: { leadId: string; ok: boolean; pageId?: string; alreadyPromoted?: boolean; error?: string }[] = [];
 
   for (const leadId of leadIds as string[]) {
     try {
-      const [{ data: lead, error: leadError }, { data: signalRows }] = await Promise.all([
-        supabase.from("leads").select("*").eq("id", leadId).single(),
-        supabase.from("lead_signals").select("signal_key, value").eq("lead_id", leadId),
+      const [[lead], signalRows] = await Promise.all([
+        sql`select * from leads where id = ${leadId}`,
+        sql`select signal_key, value from lead_signals where lead_id = ${leadId}`,
       ]);
-      if (leadError || !lead) throw new Error(leadError?.message ?? "lead não encontrado");
+      if (!lead) throw new Error("lead não encontrado");
 
-      const signalMap = new Map((signalRows ?? []).map((s: Pick<LeadSignal, "signal_key" | "value">) => [s.signal_key, s.value]));
+      const signalMap = new Map(signalRows.map((s) => [s.signal_key as string, s.value as boolean | null]));
 
       const { pageId, alreadyPromoted } = await promoteLeadToNotion({
-        lead: lead as Lead,
+        lead: lead as unknown as Lead,
         signals: {
-          has_website: signalMap.get("has_website") ?? (lead as Lead).website_url !== null,
+          has_website: signalMap.get("has_website") ?? (lead as unknown as Lead).website_url !== null,
           runs_paid_ads: signalMap.get("runs_paid_ads") ?? null,
           posts_regularly: signalMap.get("posts_regularly") ?? null,
         },
@@ -39,10 +37,7 @@ export async function POST(req: NextRequest) {
       });
 
       if (!alreadyPromoted) {
-        await supabase
-          .from("leads")
-          .update({ status: "promovido", promoted_notion_page_id: pageId, promoted_at: new Date().toISOString() })
-          .eq("id", leadId);
+        await sql`update leads set status = 'promovido', promoted_notion_page_id = ${pageId}, promoted_at = now() where id = ${leadId}`;
       }
 
       results.push({ leadId, ok: true, pageId, alreadyPromoted });

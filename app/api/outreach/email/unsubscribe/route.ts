@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { sql } from "@/lib/db";
 import { verifyUnsubscribeToken } from "@/lib/unsubscribe";
 
 // GET /api/outreach/email/unsubscribe?lead_id=...&token=... -- link do
@@ -14,9 +14,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "link inválido" }, { status: 400 });
   }
 
-  const supabase = createAdminClient();
-  const { error } = await supabase.from("leads").update({ email_opt_out: true }).eq("id", leadId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  await sql`update leads set email_opt_out = true where id = ${leadId}`;
 
   return new NextResponse(
     "<html><body style='font-family:sans-serif;padding:2rem'><p>Você não receberá mais e-mails nossos. Obrigado.</p></body></html>",

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { sql } from "@/lib/db";
 import { sendEmail } from "@/lib/email/resend";
 import { generateUnsubscribeToken } from "@/lib/unsubscribe";
 import { touchNotionLeadAfterEmail } from "@/lib/notion-bridge/promote";
@@ -39,11 +39,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "leadId, subject e bodyHtml são obrigatórios" }, { status: 400 });
   }
 
-  const supabase = createAdminClient();
-  const { data: lead, error } = await supabase.from("leads").select("*").eq("id", leadId).single();
-  if (error || !lead) return NextResponse.json({ error: error?.message ?? "lead não encontrado" }, { status: 404 });
+  const [lead] = await sql`select * from leads where id = ${leadId}`;
+  if (!lead) return NextResponse.json({ error: "lead não encontrado" }, { status: 404 });
 
-  const typedLead = lead as Lead;
+  const typedLead = lead as unknown as Lead;
   if (typedLead.email_opt_out) {
     return NextResponse.json({ error: "lead está na lista de descadastro (email_opt_out)" }, { status: 409 });
   }
@@ -58,13 +57,10 @@ export async function POST(req: NextRequest) {
 
   const result = await sendEmail({ to: typedLead.email, subject: renderedSubject, html });
 
-  await supabase.from("lead_activities").insert({
-    lead_id: leadId,
-    channel: "email",
-    type: result.sent ? "mensagem_enviada" : "erro_envio",
-    body: renderedSubject,
-    email_id: result.id ?? null,
-  });
+  await sql`
+    insert into lead_activities (lead_id, channel, type, body, email_id)
+    values (${leadId}, 'email', ${result.sent ? "mensagem_enviada" : "erro_envio"}, ${renderedSubject}, ${result.id ?? null})
+  `;
 
   if (result.sent && typedLead.promoted_notion_page_id) {
     await touchNotionLeadAfterEmail(typedLead.promoted_notion_page_id, `E-mail automatizado enviado: "${renderedSubject}"`);

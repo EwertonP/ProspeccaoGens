@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { sql } from "@/lib/db";
 import { ingestScrapeRun } from "@/lib/ingest";
 
 // POST /api/scrape-runs/apify-webhook?secret=... -- chamado pelo Apify
@@ -20,24 +20,21 @@ export async function POST(req: NextRequest) {
 
   if (!apifyRunId) return NextResponse.json({ error: "payload sem id de run" }, { status: 400 });
 
-  const supabase = createAdminClient();
-  const { data: run } = await supabase.from("scrape_runs").select("*").eq("apify_run_id", apifyRunId).maybeSingle();
+  const [run] = await sql`select * from scrape_runs where apify_run_id = ${apifyRunId}`;
   if (!run) return NextResponse.json({ error: "scrape_run não encontrada para esse apify_run_id" }, { status: 404 });
 
   if (eventType && eventType !== "ACTOR.RUN.SUCCEEDED") {
-    await supabase
-      .from("scrape_runs")
-      .update({ status: eventType.includes("FAILED") ? "failed" : "partial", finished_at: new Date().toISOString(), error_message: eventType })
-      .eq("id", run.id);
+    const status = eventType.includes("FAILED") ? "failed" : "partial";
+    await sql`update scrape_runs set status = ${status}, finished_at = now(), error_message = ${eventType} where id = ${run.id}`;
     return NextResponse.json({ ok: true, skipped: eventType });
   }
 
   try {
-    const result = await ingestScrapeRun(run.id);
+    const result = await ingestScrapeRun(run.id as string);
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     const message = err instanceof Error ? err.message : "erro desconhecido";
-    await supabase.from("scrape_runs").update({ status: "failed", error_message: message }).eq("id", run.id);
+    await sql`update scrape_runs set status = 'failed', error_message = ${message} where id = ${run.id}`;
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

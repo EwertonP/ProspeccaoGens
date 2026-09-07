@@ -1,8 +1,7 @@
-import { createAdminClient } from "./supabase/admin";
+import { sql } from "./db";
 import { fetchDatasetItems } from "./apify";
 import { extractGoogleMapsLead } from "./signals/google-maps";
 import { computeScore, toScoreInputs } from "./scoring";
-import type { Lead } from "./types";
 
 export interface IngestResult {
   found: number;
@@ -20,27 +19,19 @@ export interface IngestResult {
 // 'novo') -- só os dados brutos (raw_payload, nome, endereço etc.) são
 // atualizados numa reraspagem.
 export async function ingestScrapeRun(scrapeRunId: string): Promise<IngestResult> {
-  const supabase = createAdminClient();
-
-  const { data: run, error: runError } = await supabase
-    .from("scrape_runs")
-    .select("*")
-    .eq("id", scrapeRunId)
-    .single();
-  if (runError || !run) throw new Error(`scrape_run ${scrapeRunId} não encontrada: ${runError?.message}`);
+  const [run] = await sql`select * from scrape_runs where id = ${scrapeRunId}`;
+  if (!run) throw new Error(`scrape_run ${scrapeRunId} não encontrada`);
   if (!run.apify_dataset_id) throw new Error(`scrape_run ${scrapeRunId} sem apify_dataset_id`);
 
-  const items = await fetchDatasetItems(run.apify_dataset_id);
+  const items = await fetchDatasetItems(run.apify_dataset_id as string);
   const extracted = items.map((item) => extractGoogleMapsLead(item)).filter((x): x is NonNullable<typeof x> => !!x);
 
   const externalIds = extracted.map((e) => e.externalId);
-  const { data: existingLeads } = await supabase
-    .from("leads")
-    .select("id, external_id")
-    .eq("source", run.source)
-    .in("external_id", externalIds.length > 0 ? externalIds : ["__none__"]);
-
-  const existingByExternalId = new Map((existingLeads ?? []).map((l) => [l.external_id, l.id]));
+  const existingLeads =
+    externalIds.length > 0
+      ? await sql`select id, external_id from leads where source = ${run.source} and external_id = any(${externalIds})`
+      : [];
+  const existingByExternalId = new Map(existingLeads.map((l) => [l.external_id as string, l.id as string]));
 
   let imported = 0;
   let deduped = 0;
@@ -52,67 +43,67 @@ export async function ingestScrapeRun(scrapeRunId: string): Promise<IngestResult
 
     const scoreResult = computeScore(toScoreInputs(lead.signals));
 
-    const { data: upsertedLead, error: upsertError } = await supabase
-      .from("leads")
-      .upsert(
-        {
-          scrape_run_id: scrapeRunId,
-          source: run.source,
-          external_id: lead.externalId,
-          name: lead.name,
-          category: lead.category,
-          address: lead.address,
-          city: lead.city,
-          state: lead.state,
-          lat: lead.lat,
-          lng: lead.lng,
-          phone: lead.phone,
-          website_url: lead.websiteUrl,
-          google_maps_url: lead.googleMapsUrl,
-          google_rating: lead.googleRating,
-          google_reviews_count: lead.googleReviewsCount,
-          raw_payload: lead as unknown as Record<string, unknown>,
-          score: scoreResult.score,
-          score_breakdown: scoreResult.breakdown,
-          scored_at: new Date().toISOString(),
-        },
-        { onConflict: "source,external_id" }
-      )
-      .select("id")
-      .single();
-
-    if (upsertError || !upsertedLead) {
-      console.error(`[ingest] falha ao upsert lead ${lead.externalId}:`, upsertError?.message);
+    let leadId: string;
+    try {
+      const [upserted] = await sql`
+        insert into leads (
+          scrape_run_id, source, external_id, name, category, address, city, state, lat, lng,
+          phone, website_url, google_maps_url, google_rating, google_reviews_count,
+          raw_payload, score, score_breakdown, scored_at
+        ) values (
+          ${scrapeRunId}, ${run.source}, ${lead.externalId}, ${lead.name}, ${lead.category}, ${lead.address},
+          ${lead.city}, ${lead.state}, ${lead.lat}, ${lead.lng}, ${lead.phone}, ${lead.websiteUrl},
+          ${lead.googleMapsUrl}, ${lead.googleRating}, ${lead.googleReviewsCount},
+          ${JSON.stringify(lead)}, ${scoreResult.score}, ${JSON.stringify(scoreResult.breakdown)}, now()
+        )
+        on conflict (source, external_id) do update set
+          scrape_run_id = excluded.scrape_run_id,
+          name = excluded.name,
+          category = excluded.category,
+          address = excluded.address,
+          city = excluded.city,
+          state = excluded.state,
+          lat = excluded.lat,
+          lng = excluded.lng,
+          phone = excluded.phone,
+          website_url = excluded.website_url,
+          google_maps_url = excluded.google_maps_url,
+          google_rating = excluded.google_rating,
+          google_reviews_count = excluded.google_reviews_count,
+          raw_payload = excluded.raw_payload,
+          score = excluded.score,
+          score_breakdown = excluded.score_breakdown,
+          scored_at = excluded.scored_at,
+          updated_at = now()
+        returning id
+      `;
+      leadId = upserted.id as string;
+    } catch (err) {
+      console.error(`[ingest] falha ao upsert lead ${lead.externalId}:`, err);
       continue;
     }
 
-    const leadId = (upsertedLead as Pick<Lead, "id">).id;
-
-    const signalRows = lead.signals.map((s) => ({
-      lead_id: leadId,
-      signal_key: s.signal_key,
-      value: s.value,
-      confidence: s.confidence,
-      source: run.source,
-      detail: s.confidence === "nao_verificavel" ? "Não observável nesta fonte/execução" : null,
-    }));
-
-    const { error: signalsError } = await supabase
-      .from("lead_signals")
-      .upsert(signalRows, { onConflict: "lead_id,signal_key" });
-    if (signalsError) console.error(`[ingest] falha ao gravar sinais do lead ${leadId}:`, signalsError.message);
+    for (const s of lead.signals) {
+      const detail = s.confidence === "nao_verificavel" ? "Não observável nesta fonte/execução" : null;
+      try {
+        await sql`
+          insert into lead_signals (lead_id, signal_key, value, confidence, source, detail)
+          values (${leadId}, ${s.signal_key}, ${s.value}, ${s.confidence}, ${run.source}, ${detail})
+          on conflict (lead_id, signal_key) do update set
+            value = excluded.value, confidence = excluded.confidence, source = excluded.source,
+            detail = excluded.detail, detected_at = now()
+        `;
+      } catch (err) {
+        console.error(`[ingest] falha ao gravar sinal ${s.signal_key} do lead ${leadId}:`, err);
+      }
+    }
   }
 
-  await supabase
-    .from("scrape_runs")
-    .update({
-      status: "succeeded",
-      finished_at: new Date().toISOString(),
-      items_found: items.length,
-      items_imported: imported,
-      items_deduped: deduped,
-    })
-    .eq("id", scrapeRunId);
+  await sql`
+    update scrape_runs set status = 'succeeded', finished_at = now(),
+      items_found = ${items.length}, items_imported = ${imported}, items_deduped = ${deduped}
+    where id = ${scrapeRunId}
+  `;
 
   return { found: items.length, imported, deduped };
 }

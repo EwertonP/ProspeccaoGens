@@ -6,16 +6,19 @@ Plano completo (arquitetura, schema, decisões) em `C:\Users\Ewerton Monteiro\.c
 
 ## Stack
 
-Next.js 15 (App Router, TS) + Supabase (projeto próprio, separado do `plataforma-agencia`) + Vercel. Ferramenta interna de tenant único -- um papel só, sem multi-tenant.
+Next.js 16 (App Router, TS) + Neon (Postgres + Managed Better Auth) + Vercel. Ferramenta interna de tenant único -- um papel só, sem multi-tenant.
 
 ## Setup
 
-### 1. Supabase
+### 1. Neon
 
-1. Crie um projeto novo no [Supabase](https://supabase.com) (não reaproveite o do `plataforma-agencia` -- os domínios de dados são diferentes).
-2. Rode as migrations em `supabase/migrations/` na ordem (001, depois 002) -- via SQL Editor do dashboard ou `supabase db push` com a CLI.
-3. Crie um usuário (Authentication → Users → Add user) pra logar no app -- não há signup público.
-4. Copie `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY` (Settings → API) pro `.env.local`.
+Projeto já criado (`ProspeccaoGens`, org "Agência GENS") e linkado via `neon link` (gera `.neon/` e `.env.local` automaticamente). Pra reconfigurar do zero:
+
+1. `npm i -g neon@latest && neon login`
+2. `neon link --project-id small-haze-74844193 --branch production` (dentro da pasta do projeto) -- popula `DATABASE_URL`, `NEON_AUTH_BASE_URL` etc. em `.env.local`.
+3. Rode as migrations em `supabase/migrations/` (o nome da pasta ficou do scaffold original, mas é Postgres puro agora) -- `neon psql --role-name neondb_owner -- -f supabase/migrations/001_schema.sql`.
+4. Gere `NEON_AUTH_COOKIE_SECRET` (32+ caracteres): `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`.
+5. Crie sua conta acessando `/signup` uma vez (sem link visível no login, de propósito -- é só pra criar a conta da equipe).
 
 ### 2. Apify (coleta Google Maps)
 
