@@ -47,17 +47,18 @@ export async function ingestScrapeRun(scrapeRunId: string): Promise<IngestResult
     try {
       const [upserted] = await sql`
         insert into leads (
-          scrape_run_id, source, external_id, name, category, address, city, state, lat, lng,
+          scrape_run_id, campaign_id, source, external_id, name, category, address, city, state, lat, lng,
           phone, website_url, google_maps_url, google_rating, google_reviews_count,
           raw_payload, score, score_breakdown, scored_at
         ) values (
-          ${scrapeRunId}, ${run.source}, ${lead.externalId}, ${lead.name}, ${lead.category}, ${lead.address},
+          ${scrapeRunId}, ${run.campaign_id}, ${run.source}, ${lead.externalId}, ${lead.name}, ${lead.category}, ${lead.address},
           ${lead.city}, ${lead.state}, ${lead.lat}, ${lead.lng}, ${lead.phone}, ${lead.websiteUrl},
           ${lead.googleMapsUrl}, ${lead.googleRating}, ${lead.googleReviewsCount},
           ${JSON.stringify(lead)}, ${scoreResult.score}, ${JSON.stringify(scoreResult.breakdown)}, now()
         )
         on conflict (source, external_id) do update set
           scrape_run_id = excluded.scrape_run_id,
+          campaign_id = excluded.campaign_id,
           name = excluded.name,
           category = excluded.category,
           address = excluded.address,
