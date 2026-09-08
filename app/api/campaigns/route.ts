@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
-import { deriveCampaignPlan, AnthropicCredentialsError } from "@/lib/ai/campaign-brief";
+import { deriveCampaignPlan, AiCredentialsError } from "@/lib/ai/campaign-brief";
 import { createAndStartRun } from "@/lib/scrape-runs";
 
 // GET /api/campaigns -- lista campanhas com contagem de leads, mais
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     plan = await deriveCampaignPlan({ productPitch, buyerPersona, problemSolved, locationQuery, existingCustomers });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Falha ao analisar o briefing com IA";
-    return NextResponse.json({ error: message }, { status: err instanceof AnthropicCredentialsError ? 501 : 502 });
+    return NextResponse.json({ error: message }, { status: err instanceof AiCredentialsError ? 501 : 502 });
   }
 
   const [campaign] = await sql`

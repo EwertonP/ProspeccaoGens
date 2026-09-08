@@ -1,21 +1,14 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI } from "@google/genai";
 
 // Padrão de falha explícita (igual lib/apify.ts) -- criar uma campanha é
-// ação deliberada do usuário, deve falhar visivelmente sem chave configurada.
-export class AnthropicCredentialsError extends Error {
-  constructor(message = "ANTHROPIC_API_KEY não configurada") {
+// ação deliberada do usuário, deve falhar visivelmente sem nenhuma chave
+// de IA configurada.
+export class AiCredentialsError extends Error {
+  constructor(message = "Nenhuma chave de IA configurada -- defina ANTHROPIC_API_KEY ou GEMINI_API_KEY") {
     super(message);
-    this.name = "AnthropicCredentialsError";
+    this.name = "AiCredentialsError";
   }
-}
-
-let client: Anthropic | null = null;
-
-function getClient(): Anthropic {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new AnthropicCredentialsError();
-  if (!client) client = new Anthropic({ apiKey });
-  return client;
 }
 
 export interface CampaignBrief {
@@ -41,14 +34,23 @@ Regras:
 - locationQuery: use exatamente o que o usuário informou; se ele não informou local nenhum, use null (o app já assume Brasil inteiro nesse caso).
 - name: descreve o público-alvo + região de forma sucinta, sem aspas.`;
 
-// Única chamada de LLM por campanha (não por lead) -- pega as respostas do
-// briefing em 5 perguntas e devolve nome + termos de busca + localização
-// prontos pra alimentar lib/apify.ts::startGoogleMapsRun via
-// lib/scrape-runs.ts::createAndStartRun.
-export async function deriveCampaignPlan(brief: CampaignBrief): Promise<CampaignPlan> {
-  const anthropic = getClient();
+// Qual provedor usar: AI_PROVIDER força a escolha ("anthropic" | "gemini");
+// sem isso, detecta automaticamente pela primeira chave presente (Claude
+// tem prioridade se as duas estiverem configuradas). Mesmo princípio de
+// "falha explícita, nunca chutado" -- se nenhuma chave existe, erro claro
+// listando as duas opções em vez de tentar uma silenciosamente.
+type AiProvider = "anthropic" | "gemini";
 
-  const userMessage = [
+function resolveProvider(): AiProvider {
+  const explicit = process.env.AI_PROVIDER?.toLowerCase();
+  if (explicit === "anthropic" || explicit === "gemini") return explicit;
+  if (process.env.ANTHROPIC_API_KEY) return "anthropic";
+  if (process.env.GEMINI_API_KEY) return "gemini";
+  throw new AiCredentialsError();
+}
+
+function buildUserMessage(brief: CampaignBrief): string {
+  return [
     `O que a empresa vende: ${brief.productPitch}`,
     `Quem costuma fechar negócio: ${brief.buyerPersona}`,
     brief.problemSolved ? `Problema que resolve: ${brief.problemSolved}` : null,
@@ -57,7 +59,13 @@ export async function deriveCampaignPlan(brief: CampaignBrief): Promise<Campaign
   ]
     .filter(Boolean)
     .join("\n");
+}
 
+async function callAnthropic(userMessage: string): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new AiCredentialsError("ANTHROPIC_API_KEY não configurada");
+
+  const anthropic = new Anthropic({ apiKey });
   const response = await anthropic.messages.create({
     model: "claude-sonnet-5",
     max_tokens: 500,
@@ -65,7 +73,32 @@ export async function deriveCampaignPlan(brief: CampaignBrief): Promise<Campaign
     messages: [{ role: "user", content: userMessage }],
   });
 
-  const text = response.content.find((block) => block.type === "text")?.text ?? "{}";
+  return response.content.find((block) => block.type === "text")?.text ?? "{}";
+}
+
+async function callGemini(userMessage: string): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new AiCredentialsError("GEMINI_API_KEY não configurada");
+
+  const gemini = new GoogleGenAI({ apiKey });
+  const response = await gemini.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: userMessage,
+    config: { systemInstruction: SYSTEM_PROMPT },
+  });
+
+  return response.text ?? "{}";
+}
+
+// Única chamada de LLM por campanha (não por lead) -- pega as respostas do
+// briefing em 5 perguntas e devolve nome + termos de busca + localização
+// prontos pra alimentar lib/apify.ts::startGoogleMapsRun via
+// lib/scrape-runs.ts::createAndStartRun.
+export async function deriveCampaignPlan(brief: CampaignBrief): Promise<CampaignPlan> {
+  const provider = resolveProvider();
+  const userMessage = buildUserMessage(brief);
+  const text = provider === "anthropic" ? await callAnthropic(userMessage) : await callGemini(userMessage);
+
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("Resposta da IA não trouxe um JSON válido");
 

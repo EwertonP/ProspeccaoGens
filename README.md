@@ -20,11 +20,14 @@ Projeto já criado (`ProspeccaoGens`, org "Agência GENS") e linkado via `neon l
 4. Gere `NEON_AUTH_COOKIE_SECRET` (32+ caracteres): `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`.
 5. Crie sua conta acessando `/signup` uma vez (sem link visível no login, de propósito -- é só pra criar a conta da equipe).
 
-### 2. Anthropic (IA do wizard de campanha)
+### 2. IA do wizard de campanha (Claude ou Gemini)
 
-1. Crie uma chave em [console.anthropic.com](https://console.anthropic.com/settings/keys).
-2. Copie pra `ANTHROPIC_API_KEY`.
-3. Uso: 1 chamada por campanha criada em `/campaigns/new` (traduz o briefing em termos de busca), nunca por lead.
+Uso: 1 chamada por campanha criada em `/campaigns/new` (traduz o briefing em termos de busca), nunca por lead. Escolha um dos dois provedores -- configure só a chave dele:
+
+- **Claude**: crie uma chave em [console.anthropic.com](https://console.anthropic.com/settings/keys) e copie pra `ANTHROPIC_API_KEY`.
+- **Gemini**: crie uma chave em [aistudio.google.com/apikey](https://aistudio.google.com/apikey) e copie pra `GEMINI_API_KEY`.
+
+Se as duas chaves estiverem preenchidas, `ANTHROPIC_API_KEY` tem prioridade -- defina `AI_PROVIDER=gemini` (ou `anthropic`) pra forçar a escolha sem precisar apagar nenhuma chave.
 
 ### 3. Apify (coleta Google Maps)
 
