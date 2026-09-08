@@ -7,9 +7,25 @@ export type SignalConfidence = "observado" | "inferido" | "nao_verificavel";
 export type ActivityChannel = "whatsapp" | "instagram" | "email" | "nota" | "ligacao";
 export type ActivityType = "mensagem_enviada" | "resposta_recebida" | "reuniao_agendada" | "nota" | "erro_envio";
 export type TemplateChannel = "whatsapp" | "instagram" | "email";
+export type CampaignStatus = "ativa" | "pausada" | "concluida";
+
+export interface Campaign {
+  id: string;
+  name: string;
+  status: CampaignStatus;
+  product_pitch: string;
+  buyer_persona: string;
+  problem_solved: string | null;
+  location_query: string | null;
+  existing_customers: string | null;
+  search_terms: string[];
+  created_at: string;
+  lead_count?: number;
+}
 
 export interface ScrapeRun {
   id: string;
+  campaign_id: string | null;
   source: ScrapeSource;
   status: ScrapeRunStatus;
   apify_actor_id: string;
@@ -29,6 +45,7 @@ export interface ScrapeRun {
 export interface Lead {
   id: string;
   scrape_run_id: string | null;
+  campaign_id: string | null;
   source: ScrapeSource;
   external_id: string;
   name: string;

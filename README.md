@@ -20,14 +20,23 @@ Projeto já criado (`ProspeccaoGens`, org "Agência GENS") e linkado via `neon l
 4. Gere `NEON_AUTH_COOKIE_SECRET` (32+ caracteres): `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`.
 5. Crie sua conta acessando `/signup` uma vez (sem link visível no login, de propósito -- é só pra criar a conta da equipe).
 
-### 2. Apify (coleta Google Maps)
+### 2. IA do wizard de campanha (Claude ou Gemini)
+
+Uso: 1 chamada por campanha criada em `/campaigns/new` (traduz o briefing em termos de busca), nunca por lead. Escolha um dos dois provedores -- configure só a chave dele:
+
+- **Claude**: crie uma chave em [console.anthropic.com](https://console.anthropic.com/settings/keys) e copie pra `ANTHROPIC_API_KEY`.
+- **Gemini**: crie uma chave em [aistudio.google.com/apikey](https://aistudio.google.com/apikey) e copie pra `GEMINI_API_KEY`.
+
+Se as duas chaves estiverem preenchidas, `ANTHROPIC_API_KEY` tem prioridade -- defina `AI_PROVIDER=gemini` (ou `anthropic`) pra forçar a escolha sem precisar apagar nenhuma chave.
+
+### 3. Apify (coleta Google Maps)
 
 1. Crie uma conta em [apify.com](https://apify.com) e gere um token de API (Settings → Integrations).
 2. Copie pra `APIFY_TOKEN`.
 3. Gere uma string aleatória qualquer pra `APIFY_WEBHOOK_SECRET` (protege o endpoint que o Apify chama de volta).
 4. Custo: ator `compass/crawler-google-places`, pay-per-event (~US$0,004/local raspado no tier gratuito). Ver detalhes de preço no próprio Apify Store antes de rodar coletas grandes.
 
-### 3. Resend (e-mail automatizado)
+### 4. Resend (e-mail automatizado)
 
 1. Adicione seu domínio em [resend.com/domains](https://resend.com/domains).
 2. Configure os registros SPF/DKIM/DMARC indicados no DNS do domínio.
@@ -37,7 +46,7 @@ Projeto já criado (`ProspeccaoGens`, org "Agência GENS") e linkado via `neon l
 
 Até o domínio estar verificado, o envio de e-mail funciona em modo no-op (loga aviso, não quebra a rota).
 
-### 4. Notion (Kanban de Leads Qualificados)
+### 5. Notion (Kanban de Leads Qualificados)
 
 1. Crie a base de dados **"🎯 Leads Qualificados"** dentro da página **"🏢 Hub Central — Agência de Marketing"** no Notion, com as colunas listadas no plano (Negócio, Etapa, Origem, Categoria, Cidade, Score, Tem Site, Roda Tráfego Pago, Posta Regularmente, Avaliação Google, Telefone, WhatsApp, Instagram, Website, Link Google Maps, Responsável, Notas Internas, Data do Último Contato, Link no App, ID do Lead (App)).
 2. Crie uma integração interna em [notion.so/my-integrations](https://www.notion.so/my-integrations) ("New integration").
@@ -45,12 +54,12 @@ Até o domínio estar verificado, o envio de e-mail funciona em modo no-op (loga
 4. Abra a base "Leads Qualificados" no Notion → "•••" (canto superior direito) → "Conexões" → adicione a integração criada. **Sem esse passo a API do Notion recusa todo acesso à base.**
 5. Copie o ID da base (na URL, o trecho de 32 caracteres antes do `?`) pra `NOTION_LEADS_DATABASE_ID`.
 
-### 5. Agendamento e nome da agência
+### 6. Agendamento e nome da agência
 
 - `NEXT_PUBLIC_SCHEDULING_LINK`: link do Calendly ou Cal.com usado como CTA nos e-mails.
 - `NEXT_PUBLIC_AGENCY_NAME`: usado no rodapé LGPD dos e-mails automatizados.
 
-### 6. Rodando local
+### 7. Rodando local
 
 ```bash
 npm install
@@ -65,13 +74,17 @@ regras pra telas novas em [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md).
 
 ## Estrutura
 
+- `lib/ai/campaign-brief.ts` -- 1 chamada à IA (Claude) por campanha criada, traduz o briefing do wizard em termos de busca (nunca por lead).
+- `lib/scrape-runs.ts` -- cria a linha em `scrape_runs` e dispara o Apify; compartilhado pela coleta manual e pela criação de campanha.
 - `lib/apify.ts` -- dispara runs do Google Maps Scraper (falha explícita sem token).
 - `lib/signals/google-maps.ts` -- extrai sinais de qualificação de cada item raspado; um sinal que a fonte não permite observar fica `nao_verificavel`, nunca `false`.
 - `lib/scoring.ts` -- score 0-100 a partir dos sinais observáveis (sinais `nao_verificavel` não entram no cálculo).
 - `lib/ingest.ts` -- upsert de leads + sinais + score a partir do dataset do Apify (chamado pelo webhook e pelo cron de rede de segurança).
 - `lib/notion-bridge/` -- promove leads qualificados pro Kanban do Notion (idempotente).
 - `lib/email/resend.ts`, `lib/whatsapp.ts`, `lib/enrichment.ts`, `lib/unsubscribe.ts` -- outreach.
-- `app/(app)/runs`, `app/(app)/leads`, `app/(app)/settings` -- telas.
+- `app/(app)/campaigns`, `app/(app)/campaigns/new` -- criação de campanha via briefing (substitui o formulário técnico como ponto de entrada principal).
+- `app/(app)/runs` -- histórico técnico de execuções no Apify (acessível a partir de `/campaigns`, sem link na sidebar principal).
+- `app/(app)/leads`, `app/(app)/settings` -- telas.
 
 ## Deploy
 

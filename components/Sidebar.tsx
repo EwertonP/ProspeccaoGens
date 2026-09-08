@@ -10,7 +10,7 @@ import { SignOutButton } from "@/app/(app)/SignOutButton";
 // documentado em DESIGN_SYSTEM.md. Substitui o header horizontal antigo.
 
 const NAV = [
-  { href: "/runs", label: "Coleta", icon: RadarIcon },
+  { href: "/campaigns", label: "Campanhas", icon: TargetIcon },
   { href: "/leads", label: "Leads", icon: UsersIcon },
   { href: "/settings", label: "Configurações", icon: GearIcon },
 ];
@@ -56,12 +56,12 @@ function iconProps() {
   return { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8 } as const;
 }
 
-function RadarIcon(): ReactNode {
+function TargetIcon(): ReactNode {
   return (
     <svg {...iconProps()}>
-      <path d="M12 12 3 5" strokeLinecap="round" />
-      <path d="M20 12a8 8 0 1 1-8-8" strokeLinecap="round" />
-      <path d="M16 12a4 4 0 1 1-4-4" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="8" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="12" cy="12" r="0.5" fill="currentColor" />
     </svg>
   );
 }
