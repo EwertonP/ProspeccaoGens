@@ -1,26 +1,37 @@
 @import "tailwindcss";
 
+/* Design system "Garimpo" -- dark theme com acento âmbar, espelhando o
+   design do Garimpo Leads (ver DESIGN_SYSTEM.md na raiz). Tema único
+   (sem light mode): ferramenta interna de uso da equipe, não precisa
+   responder a prefers-color-scheme. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-background: #0b0a08;
+  --color-surface: #17130e;
+  --color-surface-hover: #1f1a13;
+  --color-border: #2a2419;
+  --color-foreground: #f3ede2;
+  --color-muted: #a89a83;
+  --color-accent: #f5820c;
+  --color-accent-hover: #dd6f04;
+  --color-accent-foreground: #1a1006;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--color-background);
+  --color-surface: var(--color-surface);
+  --color-surface-hover: var(--color-surface-hover);
+  --color-border: var(--color-border);
+  --color-foreground: var(--color-foreground);
+  --color-muted: var(--color-muted);
+  --color-accent: var(--color-accent);
+  --color-accent-hover: var(--color-accent-hover);
+  --color-accent-foreground: var(--color-accent-foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--color-background);
+  color: var(--color-foreground);
   font-family: Arial, Helvetica, sans-serif;
 }

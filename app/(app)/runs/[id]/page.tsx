@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import type { ScrapeRun } from "@/lib/types";
+import { LinkButton, RunStatusBadge } from "@/components/ui";
 
 export default function RunDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -28,28 +29,28 @@ export default function RunDetailPage({ params }: { params: Promise<{ id: string
     };
   }, [id]);
 
-  if (loading) return <p className="text-sm text-neutral-500">Carregando…</p>;
-  if (!run) return <p className="text-sm text-neutral-500">Coleta não encontrada.</p>;
+  if (loading) return <p className="text-sm text-muted">Carregando…</p>;
+  if (!run) return <p className="text-sm text-muted">Coleta não encontrada.</p>;
 
   return (
     <div className="space-y-4">
-      <Link href="/runs" className="text-sm text-neutral-500 hover:underline">← Voltar</Link>
-      <h1 className="text-xl font-semibold">Coleta — {run.source}</h1>
-      <dl className="grid grid-cols-2 gap-3 rounded-lg border bg-white p-5 text-sm sm:grid-cols-3">
-        <div><dt className="text-neutral-500">Status</dt><dd className="font-medium">{run.status}</dd></div>
-        <div><dt className="text-neutral-500">Encontrados</dt><dd className="font-medium">{run.items_found ?? "—"}</dd></div>
-        <div><dt className="text-neutral-500">Novos</dt><dd className="font-medium">{run.items_imported ?? "—"}</dd></div>
-        <div><dt className="text-neutral-500">Já existiam</dt><dd className="font-medium">{run.items_deduped ?? "—"}</dd></div>
-        <div><dt className="text-neutral-500">Iniciada</dt><dd className="font-medium">{run.started_at ? new Date(run.started_at).toLocaleString("pt-BR") : "—"}</dd></div>
-        <div><dt className="text-neutral-500">Finalizada</dt><dd className="font-medium">{run.finished_at ? new Date(run.finished_at).toLocaleString("pt-BR") : "—"}</dd></div>
+      <Link href="/runs" className="text-sm text-muted hover:text-foreground">← Voltar</Link>
+      <div className="flex items-center gap-3">
+        <h1 className="text-xl font-semibold text-foreground">Coleta — {run.source}</h1>
+        <RunStatusBadge status={run.status} />
+      </div>
+      <dl className="grid grid-cols-2 gap-3 rounded-xl border border-border bg-surface p-5 text-sm sm:grid-cols-3">
+        <div><dt className="text-muted">Encontrados</dt><dd className="font-medium text-foreground">{run.items_found ?? "—"}</dd></div>
+        <div><dt className="text-muted">Novos</dt><dd className="font-medium text-foreground">{run.items_imported ?? "—"}</dd></div>
+        <div><dt className="text-muted">Já existiam</dt><dd className="font-medium text-foreground">{run.items_deduped ?? "—"}</dd></div>
+        <div><dt className="text-muted">Iniciada</dt><dd className="font-medium text-foreground">{run.started_at ? new Date(run.started_at).toLocaleString("pt-BR") : "—"}</dd></div>
+        <div><dt className="text-muted">Finalizada</dt><dd className="font-medium text-foreground">{run.finished_at ? new Date(run.finished_at).toLocaleString("pt-BR") : "—"}</dd></div>
       </dl>
       {run.error_message && (
-        <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{run.error_message}</p>
+        <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-400">{run.error_message}</p>
       )}
       {run.status === "succeeded" && (
-        <Link href={`/leads?status=novo`} className="inline-block rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white">
-          Ver leads coletados
-        </Link>
+        <LinkButton href="/leads?status=novo">Ver leads coletados</LinkButton>
       )}
     </div>
   );

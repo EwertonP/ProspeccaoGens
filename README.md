@@ -58,6 +58,11 @@ cp .env.example .env.local   # preencha as variáveis acima
 npm run dev
 ```
 
+## Design
+
+Dark theme com acento âmbar, inspirado no Garimpo Leads — tokens, componentes e
+regras pra telas novas em [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md).
+
 ## Estrutura
 
 - `lib/apify.ts` -- dispara runs do Google Maps Scraper (falha explícita sem token).
