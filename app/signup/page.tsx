@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { signUpAction } from "@/app/actions";
+import { Button, Input, Label } from "@/components/ui";
 
 const initialState: { error?: string } = {};
 
@@ -15,29 +16,28 @@ export default function SignupPage() {
   }, initialState);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-50">
-      <form action={formAction} className="w-full max-w-sm space-y-4 rounded-lg border bg-white p-8 shadow-sm">
-        <h1 className="text-lg font-semibold">Criar conta</h1>
-        <div className="space-y-1">
-          <label className="text-sm text-neutral-600">Nome</label>
-          <input name="name" required className="w-full rounded border px-3 py-2 text-sm" />
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <form action={formAction} className="w-full max-w-sm space-y-4 rounded-xl border border-border bg-surface p-8">
+        <div className="mb-2 flex items-center gap-2">
+          <span className="text-xl">⛏️</span>
+          <h1 className="text-lg font-semibold text-foreground">Criar conta</h1>
         </div>
-        <div className="space-y-1">
-          <label className="text-sm text-neutral-600">E-mail</label>
-          <input name="email" type="email" required className="w-full rounded border px-3 py-2 text-sm" />
+        <div>
+          <Label>Nome</Label>
+          <Input name="name" required />
         </div>
-        <div className="space-y-1">
-          <label className="text-sm text-neutral-600">Senha</label>
-          <input name="password" type="password" required minLength={8} className="w-full rounded border px-3 py-2 text-sm" />
+        <div>
+          <Label>E-mail</Label>
+          <Input name="email" type="email" required />
         </div>
-        {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-        <button
-          type="submit"
-          disabled={pending}
-          className="w-full rounded bg-neutral-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
+        <div>
+          <Label>Senha</Label>
+          <Input name="password" type="password" required minLength={8} />
+        </div>
+        {state?.error && <p className="text-sm text-rose-400">{state.error}</p>}
+        <Button type="submit" disabled={pending} className="w-full">
           {pending ? "Criando…" : "Criar conta"}
-        </button>
+        </Button>
       </form>
     </div>
   );

@@ -3,13 +3,14 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import type { Lead } from "@/lib/types";
+import { Avatar, Button, Input, LeadStatusBadge, ScoreBadge, Select } from "@/components/ui";
 
 const STATUS_LABEL: Record<Lead["status"], string> = {
-  novo: "🆕 Novo",
-  qualificado: "✅ Qualificado",
-  descartado: "🗑️ Descartado",
-  contatado: "📤 Contatado",
-  promovido: "🎯 No Notion",
+  novo: "Novo",
+  qualificado: "Qualificado",
+  descartado: "Descartado",
+  contatado: "Contatado",
+  promovido: "No Notion",
 };
 
 export default function LeadsPage() {
@@ -69,77 +70,84 @@ export default function LeadsPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="text-xl font-semibold">Leads</h1>
+        <h1 className="text-xl font-semibold text-foreground">Leads</h1>
         <div className="flex items-end gap-3">
           <div>
-            <label className="block text-xs text-neutral-500">Score mínimo</label>
-            <input
+            <label className="mb-1 block text-xs font-medium text-muted">Score mínimo</label>
+            <Input
               type="number"
               min={0}
               max={100}
               value={minScore}
               onChange={(e) => setMinScore(Number(e.target.value))}
-              className="w-24 rounded border px-2 py-1 text-sm"
+              className="w-24"
             />
           </div>
           <div>
-            <label className="block text-xs text-neutral-500">Status</label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded border px-2 py-1 text-sm">
+            <label className="mb-1 block text-xs font-medium text-muted">Status</label>
+            <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">Todos</option>
               {Object.entries(STATUS_LABEL).map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
               ))}
-            </select>
+            </Select>
           </div>
-          <button
-            onClick={handlePromote}
-            disabled={selected.size === 0 || promoting}
-            className="rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-          >
+          <Button onClick={handlePromote} disabled={selected.size === 0 || promoting}>
             {promoting ? "Promovendo…" : `Promover ${selected.size || ""} pro Notion`}
-          </button>
+          </Button>
         </div>
       </div>
 
-      {promoteError && <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{promoteError}</p>}
+      {promoteError && (
+        <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-400">{promoteError}</p>
+      )}
 
       {loading ? (
-        <p className="text-sm text-neutral-500">Carregando…</p>
+        <p className="text-sm text-muted">Carregando…</p>
       ) : leads.length === 0 ? (
-        <p className="text-sm text-neutral-500">Nenhum lead encontrado com esses filtros.</p>
+        <p className="text-sm text-muted">Nenhum lead encontrado com esses filtros.</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border bg-white">
+        <div className="overflow-x-auto rounded-xl border border-border bg-surface">
           <table className="w-full text-sm">
-            <thead className="border-b bg-neutral-50 text-left text-neutral-500">
+            <thead className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
               <tr>
-                <th className="px-3 py-2"></th>
-                <th className="px-3 py-2">Negócio</th>
-                <th className="px-3 py-2">Categoria</th>
-                <th className="px-3 py-2">Cidade</th>
-                <th className="px-3 py-2">Score</th>
-                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-3"></th>
+                <th className="px-3 py-3">Negócio</th>
+                <th className="px-3 py-3">Categoria</th>
+                <th className="px-3 py-3">Cidade</th>
+                <th className="px-3 py-3">Score</th>
+                <th className="px-3 py-3">Status</th>
               </tr>
             </thead>
             <tbody>
               {leads.map((lead) => (
-                <tr key={lead.id} className="border-b last:border-0 hover:bg-neutral-50">
-                  <td className="px-3 py-2">
+                <tr key={lead.id} className="border-b border-border last:border-0 hover:bg-surface-hover">
+                  <td className="px-3 py-3">
                     <input
                       type="checkbox"
                       checked={selected.has(lead.id)}
                       onChange={() => toggle(lead.id)}
                       disabled={lead.status === "promovido"}
+                      className="accent-accent"
                     />
                   </td>
-                  <td className="px-3 py-2">
-                    <Link href={`/leads/${lead.id}`} className="font-medium text-neutral-900 hover:underline">
+                  <td className="px-3 py-3">
+                    <Link href={`/leads/${lead.id}`} className="flex items-center gap-3 font-medium text-foreground hover:text-accent">
+                      <Avatar name={lead.name} />
                       {lead.name}
                     </Link>
                   </td>
-                  <td className="px-3 py-2 text-neutral-600">{lead.category ?? "—"}</td>
-                  <td className="px-3 py-2 text-neutral-600">{lead.city ?? "—"}</td>
-                  <td className="px-3 py-2 font-medium">{lead.score ?? "—"}</td>
-                  <td className="px-3 py-2">{STATUS_LABEL[lead.status]}</td>
+                  <td className="px-3 py-3 text-muted">{lead.category ?? "—"}</td>
+                  <td className="px-3 py-3 text-muted">{lead.city ?? "—"}</td>
+                  <td className="px-3 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-foreground">{lead.score ?? "—"}</span>
+                      <ScoreBadge score={lead.score} />
+                    </div>
+                  </td>
+                  <td className="px-3 py-3">
+                    <LeadStatusBadge status={lead.status} />
+                  </td>
                 </tr>
               ))}
             </tbody>
